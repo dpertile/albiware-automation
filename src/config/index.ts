@@ -86,8 +86,9 @@ const configSchema = Joi.object({
  * VALIDAR E CARREGAR CONFIGURAÇÃO
  */
 
-const { error, value: envVars } = configSchema.prefs({ errors: { label: "key" } }).validate(
+const { error, value: envVars } = await configSchema.prefs({ errors: { label: "key" } }).validateAsync(
   process.env,
+  
   {
     abortEarly: false,
   }
