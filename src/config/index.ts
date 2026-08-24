@@ -33,7 +33,7 @@ const configSchema = Joi.object({
   ENABLE_AUDIT_LOG: Joi.boolean().default(true),
   ALERT_ON_ERROR: Joi.boolean().default(true),
   ALERT_CHANNEL: Joi.string().valid("slack", "email", "both").default("slack"),
-  SLACK_WEBHOOK_URL: Joi.string().uri(),
+  SLACK_WEBHOOK_URL: Joi.string().uri().optional(),
   EMAIL_RECIPIENTS: Joi.string().default(""),
   AUTOMATION_TAG: Joi.string().default("automated-cascade-v1"),
   AUTOMATION_OWNER: Joi.string().default("system-automation"),
@@ -58,87 +58,93 @@ const configSchema = Joi.object({
     ),
   SERVER_PORT: Joi.number().default(3000),
   SERVER_HOST: Joi.string().default("0.0.0.0"),
-});
+  PORT: Joi.number().default(3000),
+}).unknown(true);
 /**
  * CARREGAR CONFIGURAÇÃO
  */
 async function loadConfig() {
-  const { error, value: envVars } = await configSchema
-    .unknown(true)
-    .prefs({ errors: { label: "key" } })
-    .validateAsync(process.env, { abortEarly: false });
-  if (error) {
+  try {
+    const envVars = await configSchema
+      .prefs({ errors: { label: "key" } })
+      .validateAsync(process.env, { abortEarly: false });
+
+    return {
+      environment: envVars.NODE_ENV as "development" | "staging" | "production",
+      dryRun: envVars.DRY_RUN === true || envVars.DRY_RUN === "true",
+      validateAllActions:
+        envVars.VALIDATE_ALL_ACTIONS === true ||
+        envVars.VALIDATE_ALL_ACTIONS === "true",
+      logAllRequests:
+        envVars.LOG_ALL_REQUESTS === true || envVars.LOG_ALL_REQUESTS === "true",
+      enableRollback:
+        envVars.ENABLE_ROLLBACK === true || envVars.ENABLE_ROLLBACK === "true",
+      enableAlerts:
+        envVars.ENABLE_ALERTS === true || envVars.ENABLE_ALERTS === "true",
+      api: {
+        key: envVars.ALBIWARE_API_KEY,
+        baseUrl: envVars.ALBIWARE_API_BASE_URL,
+        timeout: envVars.API_TIMEOUT_MS,
+        maxRetries: envVars.API_MAX_RETRIES,
+        retryBackoffMs: envVars.API_RETRY_BACKOFF_MS,
+      },
+      database: {
+        host: envVars.DB_HOST,
+        port: envVars.DB_PORT,
+        username: envVars.DB_USER,
+        password: envVars.DB_PASSWORD,
+        database: envVars.DB_NAME,
+        ssl: envVars.DB_SSL,
+      },
+      rateLimiting: {
+        maxRequestsPerSecond: envVars.MAX_REQUESTS_PER_SECOND,
+        maxTasksPerHour: envVars.MAX_TASKS_PER_HOUR,
+        maxDatesPerHour: envVars.MAX_DATES_PER_HOUR,
+      },
+      monitoring: {
+        enableAuditLog: envVars.ENABLE_AUDIT_LOG,
+        enableAlerts: envVars.ENABLE_ALERTS,
+        alertOnError: envVars.ALERT_ON_ERROR,
+        alertChannels: envVars.ALERT_CHANNEL.includes("slack")
+          ? ["slack", "email"]
+          : [(envVars.ALERT_CHANNEL as "slack" | "email")],
+        slackWebhookUrl: envVars.SLACK_WEBHOOK_URL,
+        emailRecipients: envVars.EMAIL_RECIPIENTS
+          ? envVars.EMAIL_RECIPIENTS.split(",").map((e: string) => e.trim())
+          : undefined,
+      },
+      isolation: {
+        automationTag: envVars.AUTOMATION_TAG,
+        automationOwner: envVars.AUTOMATION_OWNER,
+        isolationMode: envVars.ISOLATION_MODE,
+      },
+      webhooks: {
+        knownWebhookIds: envVars.KNOWN_WEBHOOK_IDS.split(",").map(
+          (id: string) => parseInt(id.trim(), 10)
+        ),
+        collisionCheck: envVars.WEBHOOK_COLLISION_CHECK,
+        conflictAction: envVars.WEBHOOK_CONFLICT_ACTION,
+      },
+      cascade: {
+        projectTypes: envVars.PROJECT_TYPES.split(",").map((type: string) =>
+          type.trim()
+        ) as ProjectType[],
+        defaultAssignments: {
+          phase1Lead: "Lead Project Manager",
+          phase2Lead: "Lead Estimator",
+          phase3Lead: "Lead A/R",
+        },
+      },
+    } as Config;
+  } catch (error) {
     console.error("❌ ERRO DE CONFIGURAÇÃO:");
-    console.error(error.details.map((x) => `  - ${x.message}`).join("\n"));
+    if (error instanceof Joi.ValidationError) {
+      console.error(error.details.map((x) => `  - ${x.message}`).join("\n"));
+    } else {
+      console.error(error);
+    }
     process.exit(1);
   }
-  return {
-    environment: envVars.NODE_ENV as "development" | "staging" | "production",
-    dryRun: envVars.DRY_RUN === true || envVars.DRY_RUN === "true",
-    validateAllActions:
-      envVars.VALIDATE_ALL_ACTIONS === true ||
-      envVars.VALIDATE_ALL_ACTIONS === "true",
-    logAllRequests:
-      envVars.LOG_ALL_REQUESTS === true || envVars.LOG_ALL_REQUESTS === "true",
-    enableRollback:
-      envVars.ENABLE_ROLLBACK === true || envVars.ENABLE_ROLLBACK === "true",
-    enableAlerts:
-      envVars.ENABLE_ALERTS === true || envVars.ENABLE_ALERTS === "true",
-    api: {
-      key: envVars.ALBIWARE_API_KEY,
-      baseUrl: envVars.ALBIWARE_API_BASE_URL,
-      timeout: envVars.API_TIMEOUT_MS,
-      maxRetries: envVars.API_MAX_RETRIES,
-      retryBackoffMs: envVars.API_RETRY_BACKOFF_MS,
-    },
-    database: {
-      host: envVars.DB_HOST,
-      port: envVars.DB_PORT,
-      username: envVars.DB_USER,
-      password: envVars.DB_PASSWORD,
-      database: envVars.DB_NAME,
-      ssl: envVars.DB_SSL,
-    },
-    rateLimiting: {
-      maxRequestsPerSecond: envVars.MAX_REQUESTS_PER_SECOND,
-      maxTasksPerHour: envVars.MAX_TASKS_PER_HOUR,
-      maxDatesPerHour: envVars.MAX_DATES_PER_HOUR,
-    },
-    monitoring: {
-      enableAuditLog: envVars.ENABLE_AUDIT_LOG,
-      enableAlerts: envVars.ENABLE_ALERTS,
-      alertOnError: envVars.ALERT_ON_ERROR,
-      alertChannels: envVars.ALERT_CHANNEL.includes("slack")
-        ? ["slack", "email"]
-        : [(envVars.ALERT_CHANNEL as "slack" | "email")],
-      slackWebhookUrl: envVars.SLACK_WEBHOOK_URL,
-      emailRecipients: envVars.EMAIL_RECIPIENTS
-        ? envVars.EMAIL_RECIPIENTS.split(",").map((e: string) => e.trim())
-        : undefined,
-    },
-    isolation: {
-      automationTag: envVars.AUTOMATION_TAG,
-      automationOwner: envVars.AUTOMATION_OWNER,
-      isolationMode: envVars.ISOLATION_MODE,
-    },
-    webhooks: {
-      knownWebhookIds: envVars.KNOWN_WEBHOOK_IDS.split(",").map(
-        (id: string) => parseInt(id.trim(), 10)
-      ),
-      collisionCheck: envVars.WEBHOOK_COLLISION_CHECK,
-      conflictAction: envVars.WEBHOOK_CONFLICT_ACTION,
-    },
-    cascade: {
-      projectTypes: envVars.PROJECT_TYPES.split(",").map((type: string) =>
-        type.trim()
-      ) as ProjectType[],
-      defaultAssignments: {
-        phase1Lead: "Lead Project Manager",
-        phase2Lead: "Lead Estimator",
-        phase3Lead: "Lead A/R",
-      },
-    },
-  } as Config;
 }
 export const config = await loadConfig();
 export function logConfigSummary() {
