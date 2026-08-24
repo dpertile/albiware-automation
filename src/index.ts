@@ -249,15 +249,15 @@ async function initializeApp(): Promise<Express> {
     });
   });
   // ================================================================
-  // INICIALIZAR BANCO DE DADOS
+  // INICIALIZAR BANCO DE DADOS (SEM FALHAR SE NÃO CONECTAR)
   // ================================================================
   try {
     logger.info("📦 Inicializando banco de dados...");
     await auditService.initialize();
     logger.info("✅ Banco de dados inicializado");
   } catch (error) {
-    logger.error("❌ Erro ao inicializar banco de dados", error);
-    throw error;
+    logger.warn("⚠️ Aviso: Banco de dados não disponível", error);
+    // Continuar sem auditoria - não lançar erro
   }
   // ================================================================
   // TESTAR CONEXÃO COM API ALBIWARE
@@ -353,4 +353,3 @@ startServer().catch((error) => {
 });
 // Exportar app para testes
 export { app, initializeApp };
-
