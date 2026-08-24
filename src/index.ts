@@ -29,16 +29,9 @@ const audit = createAuditLogger({
  */
 async function initializeApp(): Promise<Express> {
   logger.info("🚀 Iniciando aplicação...");
-  // Exibir configuração
   logConfigSummary();
-  // Criar app Express
   const app = express();
-  // ================================================================
-  // MIDDLEWARE
-  // ================================================================
-  // Parse JSON
   app.use(express.json());
-  // Logging de requisições
   app.use((req: Request, res: Response, next: NextFunction) => {
     const start = Date.now();
     const requestId = uuidv4();
@@ -54,20 +47,12 @@ async function initializeApp(): Promise<Express> {
     });
     next();
   });
-  // Error handling
   app.use((err: any, req: Request, res: Response, next: NextFunction) => {
     logger.error("Unhandled error", err);
     res.status(500).json({
       error: err.message || "Internal server error",
     });
   });
-  // ================================================================
-  // ROTAS
-  // ================================================================
-  /**
-   * GET /health
-   * Health check da aplicação
-   */
   app.get("/health", (req: Request, res: Response) => {
     res.status(200).json({
       status: "healthy",
@@ -78,17 +63,9 @@ async function initializeApp(): Promise<Express> {
       version: "1.0.0",
     });
   });
-  /**
-   * POST /webhooks
-   * Receber webhooks do Albiware
-   */
   app.post("/webhooks", async (req: Request, res: Response) => {
     await webhookHandler.handleWebhook(req, res);
   });
-  /**
-   * GET /api/projects/:projectId
-   * Obter info do projeto
-   */
   app.get("/api/projects/:projectId", async (req: Request, res: Response) => {
     try {
       const projectId = parseInt(req.params.projectId, 10);
@@ -96,9 +73,7 @@ async function initializeApp(): Promise<Express> {
         res.status(400).json({ error: "Invalid project ID" });
         return;
       }
-      const project = await albiwareClient.getProject(projectId, {
-        audit,
-      });
+      const project = await albiwareClient.getProject(projectId, { audit });
       res.status(200).json({
         success: true,
         data: project,
@@ -110,10 +85,6 @@ async function initializeApp(): Promise<Express> {
       });
     }
   });
-  /**
-   * POST /api/trigger
-   * Disparar cascata manualmente
-   */
   app.post("/api/trigger", async (req: Request, res: Response) => {
     try {
       const { projectId } = req.body;
@@ -131,71 +102,53 @@ async function initializeApp(): Promise<Express> {
       });
     }
   });
-  /**
-   * GET /api/audit/logs
-   * Obter logs de auditoria
-   */
-  app.get(
-    "/api/audit/logs",
-    async (req: Request, res: Response) => {
-      try {
-        const {
-          projectId,
-          action,
-          limit = 50,
-          offset = 0,
-          errors = false,
-        } = req.query;
-        const logs = await auditService.getLogs({
-          projectId: projectId ? parseInt(projectId as string, 10) : undefined,
-          action: action as any,
-          limit: parseInt(limit as string, 10),
-          offset: parseInt(offset as string, 10),
-          onlyErrors: errors === "true",
-        });
-        res.status(200).json({
-          success: true,
-          data: logs,
-          count: logs.length,
-        });
-      } catch (error) {
-        logger.error("Error fetching audit logs", error);
-        res.status(500).json({
-          error: (error as Error).message,
-        });
-      }
+  app.get("/api/audit/logs", async (req: Request, res: Response) => {
+    try {
+      const {
+        projectId,
+        action,
+        limit = 50,
+        offset = 0,
+        errors = false,
+      } = req.query;
+      const logs = await auditService.getLogs({
+        projectId: projectId ? parseInt(projectId as string, 10) : undefined,
+        action: action as any,
+        limit: parseInt(limit as string, 10),
+        offset: parseInt(offset as string, 10),
+        onlyErrors: errors === "true",
+      });
+      res.status(200).json({
+        success: true,
+        data: logs,
+        count: logs.length,
+      });
+    } catch (error) {
+      logger.error("Error fetching audit logs", error);
+      res.status(500).json({
+        error: (error as Error).message,
+      });
     }
-  );
-  /**
-   * GET /api/conflicts
-   * Obter conflitos detectados
-   */
-  app.get(
-    "/api/conflicts",
-    async (req: Request, res: Response) => {
-      try {
-        const { projectId, resolved } = req.query;
-        const conflicts = await auditService.getConflicts(
-          projectId ? parseInt(projectId as string, 10) : undefined,
-          resolved !== undefined ? resolved === "true" : undefined
-        );
-        res.status(200).json({
-          success: true,
-          data: conflicts,
-          count: conflicts.length,
-        });
-      } catch (error) {
-        logger.error("Error fetching conflicts", error);
-        res.status(500).json({
-          error: (error as Error).message,
-        });
-      }
+  });
+  app.get("/api/conflicts", async (req: Request, res: Response) => {
+    try {
+      const { projectId, resolved } = req.query;
+      const conflicts = await auditService.getConflicts(
+        projectId ? parseInt(projectId as string, 10) : undefined,
+        resolved !== undefined ? resolved === "true" : undefined
+      );
+      res.status(200).json({
+        success: true,
+        data: conflicts,
+        count: conflicts.length,
+      });
+    } catch (error) {
+      logger.error("Error fetching conflicts", error);
+      res.status(500).json({
+        error: (error as Error).message,
+      });
     }
-  );
-  /**
-   * GET /api/stats
-   * Estatísticas
-   */
+  });
   app.get("/api/stats", async (req: Request, res: Response) => {
     try {
       const { hours = 24 } = req.query;
@@ -213,55 +166,38 @@ async function initializeApp(): Promise<Express> {
       });
     }
   });
-  /**
-   * GET /api/cascade/config
-   * Obter configuração de cascata
-   */
-  app.get(
-    "/api/cascade/config",
-    (req: Request, res: Response) => {
-      const cascadeConfig = cascadeService.getConfiguration();
-      res.status(200).json({
-        success: true,
-        data: {
-          phases: cascadeConfig.phases.map((p) => ({
-            phaseNumber: p.phaseNumber,
-            projectStatus: p.projectStatus,
-            taskCount: p.tasks.length,
-            tasks: p.tasks.map((t) => ({
-              name: t.name,
-              description: t.description,
-              role: t.assignedToRole,
-              dateKey: t.dateKeyToUpdate,
-            })),
+  app.get("/api/cascade/config", (req: Request, res: Response) => {
+    const cascadeConfig = cascadeService.getConfiguration();
+    res.status(200).json({
+      success: true,
+      data: {
+        phases: cascadeConfig.phases.map((p) => ({
+          phaseNumber: p.phaseNumber,
+          projectStatus: p.projectStatus,
+          taskCount: p.tasks.length,
+          tasks: p.tasks.map((t) => ({
+            name: t.name,
+            description: t.description,
+            role: t.assignedToRole,
+            dateKey: t.dateKeyToUpdate,
           })),
-        },
-      });
-    }
-  );
-  /**
-   * 404 Handler
-   */
+        })),
+      },
+    });
+  });
   app.use((req: Request, res: Response) => {
     res.status(404).json({
       error: "Not found",
       path: req.path,
     });
   });
-  // ================================================================
-  // INICIALIZAR BANCO DE DADOS (SEM FALHAR SE NÃO CONECTAR)
-  // ================================================================
   try {
     logger.info("📦 Inicializando banco de dados...");
     await auditService.initialize();
     logger.info("✅ Banco de dados inicializado");
   } catch (error) {
     logger.warn("⚠️ Aviso: Banco de dados não disponível", error);
-    // Continuar sem auditoria - não lançar erro
   }
-  // ================================================================
-  // TESTAR CONEXÃO COM API ALBIWARE
-  // ================================================================
   try {
     logger.info("🔌 Testando conexão com Albiware...");
     const projects = await albiwareClient.getProjects(1, { audit });
@@ -269,12 +205,8 @@ async function initializeApp(): Promise<Express> {
       projectsAvailable: projects.length,
     });
   } catch (error) {
-    logger.error("❌ Erro ao conectar com Albiware", error);
-    throw error;
+    logger.warn("⚠️ Aviso: Erro ao conectar com Albiware", error);
   }
-  // ================================================================
-  // LISTAR WEBHOOKS CONHECIDOS
-  // ================================================================
   try {
     logger.info("🪝 Verificando webhooks conhecidos...");
     const webhooks = await albiwareClient.getWebhooks({ audit });
@@ -289,16 +221,13 @@ async function initializeApp(): Promise<Express> {
         })),
       });
     } else {
-      logger.warn("⚠️  Nenhum webhook conhecido ativo");
+      logger.warn("⚠️ Nenhum webhook conhecido ativo");
     }
   } catch (error) {
     logger.warn("Aviso ao verificar webhooks", error);
   }
   return app;
 }
-/**
- * INICIAR SERVIDOR
- */
 async function startServer(): Promise<void> {
   try {
     app = await initializeApp();
@@ -323,9 +252,6 @@ async function startServer(): Promise<void> {
     process.exit(1);
   }
 }
-/**
- * GRACEFUL SHUTDOWN
- */
 async function gracefulShutdown(): Promise<void> {
   logger.info("🛑 Encerrando aplicação...");
   if (server) {
@@ -334,22 +260,16 @@ async function gracefulShutdown(): Promise<void> {
       await auditService.close();
       process.exit(0);
     });
-    // Forçar shutdown após 30s
     setTimeout(() => {
       logger.error("❌ Forçando shutdown após timeout");
       process.exit(1);
     }, 30000);
   }
 }
-// Handlers de sinal
 process.on("SIGTERM", gracefulShutdown);
 process.on("SIGINT", gracefulShutdown);
-/**
- * INICIAR APLICAÇÃO
- */
 startServer().catch((error) => {
   logger.error("Fatal error", error);
   process.exit(1);
 });
-// Exportar app para testes
 export { app, initializeApp };
