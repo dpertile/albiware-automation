@@ -58,7 +58,7 @@ class WebhookHandler {
         
         try {
           console.log("📡 Chamando API para buscar projetos...");
-          const projects = await albiwareClient.getProjects(1000, { audit });
+          const projects = await albiwareClient.getProjects(1000);
           
           console.log(`📊 Encontrados ${projects.length} projetos`);
           logger.info(`📊 Buscando entre ${projects.length} projetos`);
