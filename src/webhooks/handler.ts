@@ -9,7 +9,7 @@ import {
   WebhookPayload,
   AutomationEventType,
   AuditActionType,
-} from "../types";
+} from "../types/index.js";
 
 /**
  * HANDLER DE WEBHOOKS

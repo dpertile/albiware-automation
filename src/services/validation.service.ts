@@ -11,7 +11,7 @@ import {
   TaskValidation,
   DateValidation,
   StaffMember,
-} from "../types";
+} from "../types/index.js";
 import albiwareClient from "./albiware.client";
 
 /**

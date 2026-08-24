@@ -7,7 +7,7 @@ import {
   ConflictLog,
   AuditActionType,
   AutomationEventType,
-} from "../types";
+} from "../types/index.js";
 
 /**
  * SERVIÇO DE AUDITORIA

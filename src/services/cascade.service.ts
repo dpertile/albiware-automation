@@ -11,7 +11,7 @@ import {
   CascadePhase,
   CascadeConfiguration,
   OperationResult,
-} from "../types";
+} from "../types/index.js";
 
 /**
  * MOTOR DE CASCATA - LÓGICA PRINCIPAL

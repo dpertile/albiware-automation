@@ -11,7 +11,7 @@
  * 5. Isolamento TOTAL de outras automações
  */
 
-import { Task } from "../types";
+import { Task } from "../types/index.js";
 import { config } from "../config";
 import { createAuditLogger } from "../utils/logger";
 

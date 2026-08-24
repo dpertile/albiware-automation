@@ -9,7 +9,7 @@ import {
   ProjectDate,
   Webhook,
   ApiResponse,
-} from "../types";
+} from "../types/index.js";
 
 /**
  * CLIENTE ALBIWARE COM SEGURANÇA ENTERPRISE

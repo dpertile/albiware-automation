@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import Joi from "joi";
-import { Config, ProjectType } from "../types";
+import { Config, ProjectType } from "../types/index.js";
 
 dotenv.config();
 
