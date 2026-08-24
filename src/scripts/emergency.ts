@@ -9,8 +9,8 @@
  */
 
 import { Pool } from "pg";
-import { config } from "./config";
-import { logger } from "./utils/logger";
+import { config } from "./config.js";
+import { logger } from "./utils/logger.js";
 
 const pool = new Pool({
   host: config.database.host,

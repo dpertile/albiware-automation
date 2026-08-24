@@ -13,11 +13,11 @@ import {
   StaffMember,
 <<<<<<< HEAD
 } from "../types/index.js";
-import albiwareClient from "./albiware.client";
+import albiwareClient from "./albiware.client.js";
 
 =======
 } from "../types";
-import albiwareClient from "./albiware.client.js";
+import albiwareClient from "./albiware.client.js.js";
 >>>>>>> 2f4c447443261ae7aa08944367329317a3b22e60
 /**
  * SERVIÇO DE VALIDAÇÃO
