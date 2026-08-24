@@ -17,7 +17,7 @@ import albiwareClient from "./albiware.client.js";
 
 =======
 } from "../types";
-import albiwareClient from "./albiware.client.js.js";
+import albiwareClient from "./albiware.client.js";
 >>>>>>> 2f4c447443261ae7aa08944367329317a3b22e60
 /**
  * SERVIÇO DE VALIDAÇÃO

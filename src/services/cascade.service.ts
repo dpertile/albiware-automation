@@ -1,8 +1,8 @@
 import { v4 as uuidv4 } from "uuid";
 import { config } from "../config/index.js";
 import { createAuditLogger, AuditLogger } from "../utils/logger.js";
-import albiwareClient from "./albiware.client.js.js";
-import validationService from "./validation.service.js.js";
+import albiwareClient from "./albiware.client.js";
+import validationService from "./validation.service.js";
 import {
   Project,
   ProjectPhase,
