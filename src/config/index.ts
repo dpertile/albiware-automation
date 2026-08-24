@@ -1,9 +1,7 @@
 import dotenv from "dotenv";
 import Joi from "joi";
 import { Config, ProjectType } from "../types/index.js";
-
 dotenv.config();
-
 /**
  * SCHEMA DE VALIDAÇÃO DE CONFIGURAÇÃO
  */
@@ -61,21 +59,19 @@ const configSchema = Joi.object({
   SERVER_PORT: Joi.number().default(3000),
   SERVER_HOST: Joi.string().default("0.0.0.0"),
 });
-
 /**
  * CARREGAR CONFIGURAÇÃO
  */
 async function loadConfig() {
   const { error, value: envVars } = await configSchema
+    .unknown(true)
     .prefs({ errors: { label: "key" } })
     .validateAsync(process.env, { abortEarly: false });
-
   if (error) {
     console.error("❌ ERRO DE CONFIGURAÇÃO:");
     console.error(error.details.map((x) => `  - ${x.message}`).join("\n"));
     process.exit(1);
   }
-
   return {
     environment: envVars.NODE_ENV as "development" | "staging" | "production",
     dryRun: envVars.DRY_RUN === true || envVars.DRY_RUN === "true",
@@ -144,9 +140,7 @@ async function loadConfig() {
     },
   } as Config;
 }
-
 export const config = await loadConfig();
-
 export function logConfigSummary() {
   console.log("\n📋 CONFIGURAÇÃO CARREGADA:");
   console.log(`  Environment: ${config.environment}`);
@@ -180,7 +174,4 @@ export function logConfigSummary() {
   );
   console.log();
 }
-
 export default config;
-
-
