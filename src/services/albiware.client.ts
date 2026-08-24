@@ -1,6 +1,5 @@
 import axios, { AxiosInstance } from "axios";
-import { logger, createAuditLogger } from "../utils/logger.js";
-import { Config } from "../types/index.js";
+import { logger } from "../utils/logger.js";
 
 interface RequestOptions {
   audit?: any;
@@ -66,8 +65,10 @@ class AlbiwareClient {
   async getProjects(limit: number = 100, options?: RequestOptions) {
     try {
       logger.info("📋 Buscando projetos...");
-      const data = await this.makeRequest("GET", `/projects?limit=${limit}`, undefined, options);
-      return Array.isArray(data) ? data : [];
+      const response = await this.makeRequest("GET", `/projects?limit=${limit}`, undefined, options);
+      const projects = response?.data || response || [];
+      console.log(`📊 API retornou ${Array.isArray(projects) ? projects.length : 0} projetos`);
+      return Array.isArray(projects) ? projects : [];
     } catch (error) {
       logger.error("❌ Erro ao buscar projetos", error);
       return [];
@@ -87,8 +88,9 @@ class AlbiwareClient {
   async getTasks(projectId: number, options?: RequestOptions) {
     try {
       logger.info(`📋 Buscando tarefas do projeto ${projectId}...`);
-      const data = await this.makeRequest("GET", `/projects/${projectId}/tasks`, undefined, options);
-      return Array.isArray(data) ? data : [];
+      const response = await this.makeRequest("GET", `/projects/${projectId}/tasks`, undefined, options);
+      const tasks = response?.data || response || [];
+      return Array.isArray(tasks) ? tasks : [];
     } catch (error) {
       logger.error(`❌ Erro ao buscar tarefas`, error);
       return [];
@@ -108,8 +110,9 @@ class AlbiwareClient {
   async getWebhooks(options?: RequestOptions) {
     try {
       logger.info("🪝 Buscando webhooks...");
-      const data = await this.makeRequest("GET", `/webhooks`, undefined, options);
-      return Array.isArray(data) ? data : [];
+      const response = await this.makeRequest("GET", `/webhooks`, undefined, options);
+      const webhooks = response?.data || response || [];
+      return Array.isArray(webhooks) ? webhooks : [];
     } catch (error) {
       logger.error("❌ Erro ao buscar webhooks", error);
       return [];
@@ -123,4 +126,3 @@ const albiwareClient = new AlbiwareClient(
 );
 
 export default albiwareClient;
-
