@@ -353,3 +353,4 @@ startServer().catch((error) => {
 });
 // Exportar app para testes
 export { app, initializeApp };
+
