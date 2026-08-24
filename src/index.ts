@@ -1,12 +1,12 @@
 import express, { Express, Request, Response, NextFunction } from "express";
 import { v4 as uuidv4 } from "uuid";
-import { config, logConfigSummary } from "./config";
-import { logger, createAuditLogger } from "./utils/logger";
-import albiwareClient from "./services/albiware.client";
-import cascadeService from "./services/cascade.service";
-import auditService from "./services/audit.service";
-import validationService from "./services/validation.service";
-import webhookHandler from "./webhooks/handler";
+import { config, logConfigSummary } from "./config/index.js";
+import { logger, createAuditLogger } from "./utils/logger.js";
+import albiwareClient from "./services/albiware.client.js";
+import cascadeService from "./services/cascade.service.js";
+import auditService from "./services/audit.service.js";
+import validationService from "./services/validation.service.js";
+import webhookHandler from "./webhooks/handler.js";
 
 /**
  * APLICAÇÃO EXPRESS - ALBIWARE AUTOMATION
