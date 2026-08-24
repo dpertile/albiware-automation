@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Albiware Cascade Task Automation",
   "main": "dist/index.js",
+  "type": "module",
   "scripts": {
     "build": "tsc || true",
     "start": "node dist/index.js",
