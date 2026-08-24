@@ -411,3 +411,4 @@ if (require.main === module) {
 
 // Exportar app para testes
 export { app, initializeApp };
+
