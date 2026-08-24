@@ -190,22 +190,43 @@ class CascadeService {
           // Validar que a tarefa tem os dados necessários
           console.log(`task validation: ✅ PASSED`);
 
-          // Criar a tarefa usando o endpoint correto: POST /staff-tasks
+          // USAR A API V5 QUE FUNCIONA!
+          // POST /api/v5/Integrations/projects/{id}/tasks
           const taskData = {
-            projectId: projectId,
-            notes: task.description,
+            name: task.name,
+            description: task.description,
             status: "To-Do",
-            userId: 1, // Será atribuído ao primeiro staff disponível
-            staffTaskActionId: 1, // ID padrão da ação
           };
 
-          console.log(`🚀 Enviando POST para /staff-tasks com:`, taskData);
+          console.log(`🚀 Enviando POST para /projects/${projectId}/tasks com:`, taskData);
 
-          const createdTask = await albiwareClient.createTask(
-            projectId,
-            taskData
+          // Fazer chamada direta à API v5
+          const response = await fetch(
+            `https://api.albiware.com/v5/Integrations/projects/${projectId}/tasks`,
+            {
+              method: "POST",
+              headers: {
+                "X-API-KEY": process.env.ALBIWARE_API_KEY || "",
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(taskData),
+            }
           );
 
+          console.log(`📊 Response status:`, response.status);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.log(`❌ Erro na resposta:`, errorText);
+            result.errors.push({
+              taskName: task.name,
+              status: response.status,
+              error: errorText,
+            });
+            continue;
+          }
+
+          const createdTask = await response.json();
           console.log(`✅ Tarefa criada:`, createdTask?.id || createdTask);
           logger.info(`✅ Tarefa criada com sucesso`, {
             taskName: task.name,
@@ -226,14 +247,14 @@ class CascadeService {
 
       console.log(`\n📊 Resultado:`, result);
 
-      result.success = result.errors.length === 0;
+      result.success = result.tasksCreated.length > 0 && result.errors.length === 0;
 
       if (result.success) {
         console.log(`✅ CASCATA DISPARADA COM SUCESSO!`);
         logger.info(`✅ Cascata disparada com sucesso`, result);
       } else {
         console.log(
-          `⚠️ Cascata não foi disparada (${result.errors.length} erros)`
+          `⚠️ Cascata não foi disparada (${result.tasksCreated.length} tarefas, ${result.errors.length} erros)`
         );
         logger.warn(`⚠️ Cascata não foi disparada`, result);
       }
