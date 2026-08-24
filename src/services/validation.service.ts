@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
-import { config } from "../config";
-import { createAuditLogger, AuditLogger } from "../utils/logger";
+import { config } from "../config/index.js";
+import { createAuditLogger, AuditLogger } from "../utils/logger.js";
 import {
   Project,
   ProjectType,
@@ -11,9 +11,14 @@ import {
   TaskValidation,
   DateValidation,
   StaffMember,
+<<<<<<< HEAD
 } from "../types/index.js";
 import albiwareClient from "./albiware.client";
 
+=======
+} from "../types";
+import albiwareClient from "./albiware.client.js";
+>>>>>>> 2f4c447443261ae7aa08944367329317a3b22e60
 /**
  * SERVIÇO DE VALIDAÇÃO
  *
@@ -28,20 +33,17 @@ import albiwareClient from "./albiware.client";
  * - Detecção de conflitos com webhooks
  * - Isolamento de dados
  */
-
 export class ValidationService {
   private audit: AuditLogger;
   private projectCache = new Map<number, Project>();
   private staffCache = new Map<number, StaffMember>();
   private webhookCache: number[] = [];
-
   constructor() {
     this.audit = createAuditLogger({
       automationId: "validation-service",
       dryRun: config.dryRun,
     });
   }
-
   /**
    * VALIDAR CRIAÇÃO DE TAREFA
    *
@@ -53,7 +55,6 @@ export class ValidationService {
    * 5. Responsável existe?
    * 6. Webhooks vão reagir?
    */
-
   async validateTaskCreation(
     projectId: number,
     taskName: string,
@@ -64,7 +65,6 @@ export class ValidationService {
     const validationId = uuidv4();
     const errors: string[] = [];
     const warnings: string[] = [];
-
     try {
       // 1. Projeto existe?
       const project = await this.getProject(projectId);
@@ -83,7 +83,6 @@ export class ValidationService {
           },
         };
       }
-
       // 2. Projeto é tipo aplicável?
       const projectTypeApplicable = config.cascade.projectTypes.includes(
         project.projectType as ProjectType
@@ -93,7 +92,6 @@ export class ValidationService {
           `Project type "${project.projectType}" not in automation scope`
         );
       }
-
       // 3. Projeto está em fase correta?
       const projectInCorrectPhase = project.status === expectedProjectPhase;
       if (!projectInCorrectPhase) {
@@ -101,7 +99,6 @@ export class ValidationService {
           `Project status "${project.status}" != expected "${expectedProjectPhase}"`
         );
       }
-
       // 4. Tarefa já existe? (IMPORTANTE!)
       const existingTasks = await albiwareClient.getTasks(projectId, {
         audit: this.audit,
@@ -118,7 +115,6 @@ export class ValidationService {
           `Task "${taskName}" already exists in this project (will skip creation)`
         );
       }
-
       // 5. Responsável existe?
       let assigneeExists = true;
       if (assignedToId) {
@@ -128,7 +124,6 @@ export class ValidationService {
           errors.push(`Staff member ${assignedToId} not found`);
         }
       }
-
       // 6. Webhooks vão reagir?
       const webhooksWillTrigger = await this.checkWebhookTriggers(
         "task.created"
@@ -140,13 +135,11 @@ export class ValidationService {
           )}]`
         );
       }
-
       const valid =
         projectTypeApplicable &&
         projectInCorrectPhase &&
         taskNotDuplicate &&
         assigneeExists;
-
       const result: TaskValidation = {
         projectExists: !!project,
         projectTypeApplicable,
@@ -165,9 +158,7 @@ export class ValidationService {
           },
         },
       };
-
       this.audit.logValidation("task", taskName, valid, errors);
-
       return result;
     } catch (error) {
       this.audit.error(
@@ -191,7 +182,6 @@ export class ValidationService {
       };
     }
   }
-
   /**
    * VALIDAR ATUALIZAÇÃO DE DATA
    *
@@ -202,7 +192,6 @@ export class ValidationService {
    * 4. Projeto está em fase correta?
    * 5. Zapier (ou outros webhooks) vai reagir?
    */
-
   async validateDateUpdate(
     projectId: number,
     dateKey: string,
@@ -211,7 +200,6 @@ export class ValidationService {
   ): Promise<DateValidation> {
     const errors: string[] = [];
     const warnings: string[] = [];
-
     try {
       // 1. Projeto existe?
       const project = await this.getProject(projectId);
@@ -230,7 +218,6 @@ export class ValidationService {
           },
         };
       }
-
       // 2. Data key é válida? (lista conhecida)
       const validDateKeys = [
         "dateOfLoss",
@@ -275,14 +262,12 @@ export class ValidationService {
         "Check Signed",
         "Final Paid Date/Date Closed",
       ];
-
       const dateKeyValid = validDateKeys.includes(dateKey);
       if (!dateKeyValid) {
         errors.push(
           `Unknown date key: "${dateKey}" (not in valid date list)`
         );
       }
-
       // 3. Não vai sobrescrever data?
       const currentDates = await albiwareClient.getProjectDates(projectId, {
         audit: this.audit,
@@ -292,17 +277,14 @@ export class ValidationService {
       );
       const noOverwrite =
         !currentDate?.dateValue || allowOverwrite ? true : false;
-
       if (currentDate?.dateValue && !allowOverwrite) {
         warnings.push(
           `Date "${dateKey}" already has value "${currentDate.dateValue}" (will not overwrite unless explicitly allowed)`
         );
       }
-
       // 4. Projeto está em fase correta?
       // (Não há restrição específica, mas logar para auditoria)
       const inCorrectPhase = !!project;
-
       // 5. Zapier vai reagir?
       const webhooksWillTrigger = await this.checkWebhookTriggers(
         "project.date.updated"
@@ -310,27 +292,23 @@ export class ValidationService {
       const noConflictWithZapier = !(
         webhooksWillTrigger.length > 0 && config.webhooks.collisionCheck
       );
-
       if (webhooksWillTrigger.length > 0) {
         warnings.push(
           `Date update will trigger ${webhooksWillTrigger.length} webhook(s): [${webhooksWillTrigger.join(
             ", "
           )}]`
         );
-
         if (config.webhooks.collisionCheck) {
           warnings.push(
             `⚠️ ZAPIER WEBHOOK DETECTED: This date update may conflict with existing automation`
           );
         }
       }
-
       const valid =
         project &&
         dateKeyValid &&
         noOverwrite &&
         inCorrectPhase;
-
       const result: DateValidation = {
         projectExists: !!project,
         dateKeyValid,
@@ -349,9 +327,7 @@ export class ValidationService {
           },
         },
       };
-
       this.audit.logValidation("date", dateKey, valid, errors);
-
       return result;
     } catch (error) {
       this.audit.error(
@@ -375,11 +351,9 @@ export class ValidationService {
       };
     }
   }
-
   /**
    * VERIFICAR QUAIS WEBHOOKS VÃO SER DISPARADOS
    */
-
   private async checkWebhookTriggers(eventType: string): Promise<number[]> {
     try {
       if (this.webhookCache.length === 0) {
@@ -388,7 +362,6 @@ export class ValidationService {
         });
         this.webhookCache = webhooks.map((w) => w.id);
       }
-
       // Filtra webhooks conhecidos que subscrevem ao evento
       return config.webhooks.knownWebhookIds.filter(
         (id) =>
@@ -403,30 +376,24 @@ export class ValidationService {
       return [];
     }
   }
-
   /**
    * VERIFICAR SE WEBHOOK CONHECIDO SUBSCREVEU AO EVENTO
    */
-
   private isKnownWebhookSubscribedTo(webhookId: number, eventType: string): boolean {
     // Zapier (ID 15802) subscreveu a "project.date.updated"
     if (webhookId === 15802) {
       return eventType === "project.date.updated";
     }
-
     // Adicionar outros webhooks conhecidos conforme necessário
     return false;
   }
-
   /**
    * CACHE: GET PROJECT
    */
-
   private async getProject(projectId: number): Promise<Project | null> {
     if (this.projectCache.has(projectId)) {
       return this.projectCache.get(projectId) || null;
     }
-
     try {
       const project = await albiwareClient.getProject(projectId, {
         audit: this.audit,
@@ -438,18 +405,15 @@ export class ValidationService {
       return null;
     }
   }
-
   /**
    * CACHE: GET STAFF MEMBER
    */
-
   private async getStaffMember(
     staffId: number
   ): Promise<StaffMember | null> {
     if (this.staffCache.has(staffId)) {
       return this.staffCache.get(staffId) || null;
     }
-
     try {
       const staff = await albiwareClient.getStaffMember(staffId, {
         audit: this.audit,
@@ -461,11 +425,9 @@ export class ValidationService {
       return null;
     }
   }
-
   /**
    * LIMPAR CACHE (quando necessário forçar refresh)
    */
-
   clearCache(): void {
     this.projectCache.clear();
     this.staffCache.clear();
@@ -473,11 +435,8 @@ export class ValidationService {
     this.audit.info("Cache cleared");
   }
 }
-
 /**
  * EXPORTAR INSTÂNCIA SINGLETON
  */
-
 export const validationService = new ValidationService();
-
 export default validationService;

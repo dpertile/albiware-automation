@@ -1,16 +1,20 @@
 import { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import crypto from "crypto";
-import { config } from "../config";
-import { createAuditLogger } from "../utils/logger";
-import cascadeService from "../services/cascade.service";
-import auditService from "../services/audit.service";
+import { config } from "../config/index.js";
+import { createAuditLogger } from "../utils/logger.js";
+import cascadeService from "../services/cascade.service.js";
+import auditService from "../services/audit.service.js";
 import {
   WebhookPayload,
   AutomationEventType,
   AuditActionType,
+<<<<<<< HEAD
 } from "../types/index.js";
 
+=======
+} from "../types";
+>>>>>>> 2f4c447443261ae7aa08944367329317a3b22e60
 /**
  * HANDLER DE WEBHOOKS
  *
@@ -28,15 +32,12 @@ import {
  * - Timeout + retry
  * - Logging completo
  */
-
 export class WebhookHandler {
   private audit = createAuditLogger({
     automationId: "webhook-handler",
     dryRun: config.dryRun,
   });
-
   private processedWebhooks = new Map<string, Date>(); // Para deduplicação
-
   constructor() {
     // Limpar cache de webhooks processados a cada 1 hora
     setInterval(() => {
@@ -48,40 +49,33 @@ export class WebhookHandler {
       }
     }, 60 * 60 * 1000);
   }
-
   /**
    * HANDLER PRINCIPAL DE WEBHOOK
    */
-
   async handleWebhook(
     req: Request,
     res: Response
   ): Promise<void> {
     const webhookId = uuidv4();
     const startTime = Date.now();
-
     try {
       this.audit.info("🪝 WEBHOOK RECEBIDO", {
         webhookId,
         method: req.method,
         path: req.path,
       });
-
       // 1. Validar que é POST
       if (req.method !== "POST") {
         res.status(405).json({ error: "Method not allowed" });
         return;
       }
-
       // 2. Validar payload
       if (!req.body) {
         res.status(400).json({ error: "No payload" });
         return;
       }
-
       // 3. Extrair dados
       const { eventType, projectId, data } = req.body;
-
       // 4. Validar campos obrigatórios
       if (!eventType || !projectId) {
         this.audit.warn("⚠️  WEBHOOK INVÁLIDO - Campos faltando", {
@@ -92,7 +86,6 @@ export class WebhookHandler {
         res.status(400).json({ error: "Missing eventType or projectId" });
         return;
       }
-
       // 5. Deduplicar (evitar processar 2x o mesmo webhook)
       const dedupeKey = `${projectId}:${eventType}:${JSON.stringify(data)}`;
       if (this.processedWebhooks.has(dedupeKey)) {
@@ -104,30 +97,23 @@ export class WebhookHandler {
         res.status(200).json({ status: "duplicate", webhookId });
         return;
       }
-
       // Marcar como processado
       this.processedWebhooks.set(dedupeKey, new Date());
-
       // 6. Despachar para handler apropriado
       let result: any;
-
       switch (eventType) {
         case "project.created":
           result = await this.handleProjectCreated(projectId, data, webhookId);
           break;
-
         case "task.completed":
           result = await this.handleTaskCompleted(projectId, data, webhookId);
           break;
-
         case "project.date.updated":
           result = await this.handleDateUpdated(projectId, data, webhookId);
           break;
-
         case "project.status.changed":
           result = await this.handleStatusChanged(projectId, data, webhookId);
           break;
-
         default:
           this.audit.info("ℹ️  EVENTO NÃO TRATADO", {
             webhookId,
@@ -137,9 +123,7 @@ export class WebhookHandler {
           res.status(200).json({ status: "ignored", webhookId });
           return;
       }
-
       const duration = Date.now() - startTime;
-
       // Logar resultado
       await auditService.logAction({
         timestamp: new Date(),
@@ -157,7 +141,6 @@ export class WebhookHandler {
           result,
         },
       });
-
       // Responder ao webhook
       res.status(200).json({
         status: "success",
@@ -169,24 +152,20 @@ export class WebhookHandler {
       });
     } catch (error) {
       const duration = Date.now() - startTime;
-
       this.audit.error("❌ ERRO AO PROCESSAR WEBHOOK", error as Error, {
         webhookId,
         duration,
       });
-
       res.status(500).json({
         error: (error as Error).message,
         webhookId,
       });
     }
   }
-
   /**
    * EVENTO: Projeto Criado
    * → Disparar cascata (Fase 1)
    */
-
   private async handleProjectCreated(
     projectId: number,
     data: any,
@@ -198,9 +177,7 @@ export class WebhookHandler {
         projectId,
         projectName: data?.projectName,
       });
-
       const result = await cascadeService.triggerCascadeForProject(projectId);
-
       return {
         success: result.success,
         error: result.error,
@@ -212,19 +189,16 @@ export class WebhookHandler {
         error as Error,
         { webhookId, projectId }
       );
-
       return {
         success: false,
         error: (error as Error).message,
       };
     }
   }
-
   /**
    * EVENTO: Tarefa Concluída
    * → Processar conclusão (pode disparar próxima fase)
    */
-
   private async handleTaskCompleted(
     projectId: number,
     data: any,
@@ -232,26 +206,22 @@ export class WebhookHandler {
   ): Promise<{ success: boolean; error?: string; action?: string }> {
     try {
       const taskName = data?.taskName;
-
       if (!taskName) {
         return {
           success: false,
           error: "Missing taskName in webhook data",
         };
       }
-
       this.audit.info("✅ TAREFA CONCLUÍDA - PROCESSANDO", {
         webhookId,
         projectId,
         taskName,
       });
-
       const result = await cascadeService.processTaskCompletion(
         projectId,
         taskName,
         webhookId
       );
-
       return {
         success: result.success,
         error: result.error,
@@ -263,19 +233,16 @@ export class WebhookHandler {
         error as Error,
         { webhookId, projectId }
       );
-
       return {
         success: false,
         error: (error as Error).message,
       };
     }
   }
-
   /**
    * EVENTO: Data de Projeto Atualizada
    * → Detectar conflito com Zapier
    */
-
   private async handleDateUpdated(
     projectId: number,
     data: any,
@@ -285,14 +252,12 @@ export class WebhookHandler {
       const dateKey = data?.dateKey;
       const dateValue = data?.dateValue;
       const sourceId = data?.sourceId;
-
       this.audit.info("📅 DATA ATUALIZADA - VERIFICANDO CONFLITO", {
         webhookId,
         projectId,
         dateKey,
         sourceId,
       });
-
       // Verificar se veio de fonte externa (Zapier)
       if (sourceId && sourceId !== config.isolation.automationOwner) {
         this.audit.warn("⚠️  DATA ATUALIZADA POR FONTE EXTERNA", {
@@ -301,7 +266,6 @@ export class WebhookHandler {
           dateKey,
           source: sourceId,
         });
-
         // Logar possível conflito
         await auditService.logConflict({
           timestamp: new Date(),
@@ -313,13 +277,11 @@ export class WebhookHandler {
           description: `Date "${dateKey}" was updated by external source (${sourceId})`,
           resolved: false,
         });
-
         return {
           success: true,
           action: "external_date_update_logged",
         };
       }
-
       return {
         success: true,
         action: "date_update_processed",
@@ -330,19 +292,16 @@ export class WebhookHandler {
         error as Error,
         { webhookId, projectId }
       );
-
       return {
         success: false,
         error: (error as Error).message,
       };
     }
   }
-
   /**
    * EVENTO: Status de Projeto Mudou
    * → Monitorar mudanças
    */
-
   private async handleStatusChanged(
     projectId: number,
     data: any,
@@ -351,14 +310,12 @@ export class WebhookHandler {
     try {
       const oldStatus = data?.oldStatus;
       const newStatus = data?.newStatus;
-
       this.audit.info("🔄 STATUS DO PROJETO MUDOU", {
         webhookId,
         projectId,
         oldStatus,
         newStatus,
       });
-
       return {
         success: true,
         action: "status_change_logged",
@@ -369,18 +326,15 @@ export class WebhookHandler {
         error as Error,
         { webhookId, projectId }
       );
-
       return {
         success: false,
         error: (error as Error).message,
       };
     }
   }
-
   /**
    * HEALTH CHECK PARA WEBHOOKS
    */
-
   handleHealth(req: Request, res: Response): void {
     res.status(200).json({
       status: "healthy",
@@ -390,15 +344,12 @@ export class WebhookHandler {
       processedWebhooks: this.processedWebhooks.size,
     });
   }
-
   /**
    * OBTER ESTATÍSTICAS DE WEBHOOKS
    */
-
   async handleStats(req: Request, res: Response): Promise<void> {
     try {
       const stats = await auditService.getStatistics(24);
-
       res.status(200).json({
         ...stats,
         processedWebhooksInMemory: this.processedWebhooks.size,
@@ -410,11 +361,8 @@ export class WebhookHandler {
     }
   }
 }
-
 /**
  * EXPORTAR INSTÂNCIA SINGLETON
  */
-
 export const webhookHandler = new WebhookHandler();
-
 export default webhookHandler;

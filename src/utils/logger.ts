@@ -1,11 +1,9 @@
 import pino from "pino";
-import { config } from "../config";
-
+import { config } from "../config/index.js";
 /**
  * LOGGER CENTRALIZADO COM PINO
  * Garante que todas as operações sejam registradas de forma estruturada
  */
-
 const pinoConfig = {
   level: config.environment === "production" ? "info" : "debug",
   transport:
@@ -21,14 +19,11 @@ const pinoConfig = {
         }
       : undefined,
 };
-
 export const logger = pino(pinoConfig);
-
 /**
  * WRAPPER PARA LOGGING DE AUDITORIA
  * Cada ação importante é logada com contexto completo
  */
-
 export interface AuditContext {
   automationId: string;
   projectId?: number;
@@ -38,10 +33,8 @@ export interface AuditContext {
   dryRun: boolean;
   userId?: string;
 }
-
 export class AuditLogger {
   constructor(private context: AuditContext) {}
-
   info(message: string, data?: Record<string, any>) {
     logger.info(
       {
@@ -51,7 +44,6 @@ export class AuditLogger {
       message
     );
   }
-
   warn(message: string, data?: Record<string, any>) {
     logger.warn(
       {
@@ -61,7 +53,6 @@ export class AuditLogger {
       message
     );
   }
-
   error(message: string, error?: Error, data?: Record<string, any>) {
     logger.error(
       {
@@ -73,7 +64,6 @@ export class AuditLogger {
       message
     );
   }
-
   debug(message: string, data?: Record<string, any>) {
     logger.debug(
       {
@@ -83,11 +73,9 @@ export class AuditLogger {
       message
     );
   }
-
   /**
    * LOG ESTRUTURADO DE AÇÕES DE API
    */
-
   logApiCall(
     method: string,
     endpoint: string,
@@ -97,7 +85,6 @@ export class AuditLogger {
   ) {
     const level = status >= 400 ? "error" : status >= 300 ? "warn" : "info";
     const logFn = logger[level as keyof typeof logger] as any;
-
     logFn(
       {
         ...this.context,
@@ -110,11 +97,9 @@ export class AuditLogger {
       `API Call: ${method} ${endpoint}`
     );
   }
-
   /**
    * LOG DE VALIDAÇÃO
    */
-
   logValidation(
     resource: "task" | "date" | "project",
     resourceId: string | number,
@@ -128,11 +113,9 @@ export class AuditLogger {
       ...(errors && { validationErrors: errors }),
     });
   }
-
   /**
    * LOG DE CONFLITO
    */
-
   logConflict(
     type: string,
     description: string,
@@ -144,11 +127,9 @@ export class AuditLogger {
       ...(webhooksTriggered && { webhooksTriggered }),
     });
   }
-
   /**
    * LOG DE OPERAÇÃO EM DRY-RUN
    */
-
   logDryRunAction(action: string, resource: string, details?: Record<string, any>) {
     this.info(`[DRY-RUN] ${action} - ${resource}`, {
       mode: "dry-run",
@@ -157,11 +138,9 @@ export class AuditLogger {
       ...details,
     });
   }
-
   /**
    * LOG DE RETRY
    */
-
   logRetry(
     attempt: number,
     maxAttempts: number,
@@ -170,7 +149,6 @@ export class AuditLogger {
   ) {
     const level = attempt === maxAttempts ? "error" : "warn";
     const logFn = logger[level] as any;
-
     logFn(
       {
         ...this.context,
@@ -183,13 +161,10 @@ export class AuditLogger {
     );
   }
 }
-
 /**
  * EXPORTAR FACTORY PARA CRIAR AUDIT LOGGERS
  */
-
 export function createAuditLogger(context: AuditContext): AuditLogger {
   return new AuditLogger(context);
 }
-
 export default logger;
