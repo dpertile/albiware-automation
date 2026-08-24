@@ -1,13 +1,7 @@
 import { Request, Response } from "express";
-import { logger, createAuditLogger } from "../utils/logger.js";
+import { logger } from "../utils/logger.js";
 import cascadeService from "../services/cascade.service.js";
 import albiwareClient from "../services/albiware.client.js";
-import { config } from "../config/index.js";
-
-const audit = createAuditLogger({
-  automationId: "webhook-handler",
-  dryRun: config.dryRun,
-});
 
 interface WebhookPayload {
   Entity: string;
@@ -20,13 +14,11 @@ class WebhookHandler {
   async handleWebhook(req: Request, res: Response): Promise<void> {
     console.log("🔔 === WEBHOOK RECEBIDO === 🔔");
     console.log("Request body:", JSON.stringify(req.body, null, 2));
-    logger.info("🔔 WEBHOOK HANDLER CHAMADO!");
-    
+
     try {
       const payload: WebhookPayload = req.body;
 
       console.log("📋 Payload:", payload);
-      logger.info("📋 Processando payload", payload);
 
       if (!payload || !payload.Entity || !payload.EntityId) {
         console.log("❌ Payload inválido!");
@@ -55,11 +47,11 @@ class WebhookHandler {
       else if (Entity === "project.date") {
         console.log("🔍 Tipo: project.date.updated - Buscando Project ID...");
         logger.info(`🔍 Webhook type: project.date.updated`);
-        
+
         try {
           console.log("📡 Chamando API para buscar projetos...");
           const projects = await albiwareClient.getProjects(1000);
-          
+
           console.log(`📊 Encontrados ${projects.length} projetos`);
           logger.info(`📊 Buscando entre ${projects.length} projetos`);
 
@@ -79,6 +71,7 @@ class WebhookHandler {
             return;
           }
 
+          // Usar o projeto mais recentemente atualizado
           projectId = productionProjects[0].id;
           console.log(`✅ Projeto encontrado: ${projectId}`);
           logger.info(`✅ Projeto encontrado via API`, { projectId });
@@ -112,7 +105,7 @@ class WebhookHandler {
       }
 
       console.log(`🎯 Disparando cascata para project ${projectId}`);
-      audit.info("🎯 WEBHOOK DISPARANDO CASCATA", { projectId, Entity, Scope });
+      logger.info("🎯 WEBHOOK DISPARANDO CASCATA", { projectId, Entity, Scope });
 
       try {
         console.log("🚀 Chamando cascadeService...");
