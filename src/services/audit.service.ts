@@ -1,14 +1,13 @@
 import { Pool, PoolClient } from "pg";
 import { v4 as uuidv4 } from "uuid";
-import { config } from "../config";
-import { createAuditLogger } from "../utils/logger";
+import { config } from "../config/index.js";
+import { createAuditLogger } from "../utils/logger.js";
 import {
   AuditLogEntry,
   ConflictLog,
   AuditActionType,
   AutomationEventType,
 } from "../types";
-
 /**
  * SERVIÇO DE AUDITORIA
  *
@@ -18,14 +17,12 @@ import {
  * - Fornecer capacidade de rollback
  * - Fornecer queries para relatórios
  */
-
 export class AuditService {
   private pool: Pool;
   private audit = createAuditLogger({
     automationId: "audit-service",
     dryRun: config.dryRun,
   });
-
   constructor() {
     this.pool = new Pool({
       host: config.database.host,
@@ -39,17 +36,13 @@ export class AuditService {
       connectionTimeoutMillis: 2000,
     });
   }
-
   /**
    * INICIALIZAR - CRIAR TABELAS SE NÃO EXISTEM
    */
-
   async initialize(): Promise<void> {
     const client = await this.pool.connect();
-
     try {
       this.audit.info("Initializing audit database schema...");
-
       // Criar tabelas
       await client.query(`
         CREATE TABLE IF NOT EXISTS audit_logs (
@@ -72,13 +65,11 @@ export class AuditService {
           source_webhook VARCHAR(255),
           duration_ms INTEGER,
           metadata JSONB,
-
           -- Indexes para performance
           CONSTRAINT project_id_idx INDEX USING BTREE (project_id),
           CONSTRAINT timestamp_idx INDEX USING BTREE (timestamp DESC),
           CONSTRAINT action_idx INDEX USING BTREE (action)
         );
-
         CREATE TABLE IF NOT EXISTS conflict_logs (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -91,11 +82,9 @@ export class AuditService {
           resolved BOOLEAN DEFAULT false,
           resolution TEXT,
           metadata JSONB,
-
           CONSTRAINT project_id_conflict_idx INDEX USING BTREE (project_id),
           CONSTRAINT timestamp_conflict_idx INDEX USING BTREE (timestamp DESC)
         );
-
         CREATE TABLE IF NOT EXISTS automation_state (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           project_id INTEGER UNIQUE NOT NULL,
@@ -106,7 +95,6 @@ export class AuditService {
           status VARCHAR(20) DEFAULT 'idle',
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
-
         CREATE TABLE IF NOT EXISTS rollback_snapshots (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -118,7 +106,6 @@ export class AuditService {
           can_rollback BOOLEAN DEFAULT true
         );
       `);
-
       this.audit.info("✅ Database schema initialized");
     } catch (error) {
       this.audit.error(
@@ -130,15 +117,12 @@ export class AuditService {
       client.release();
     }
   }
-
   /**
    * REGISTRAR AÇÃO NO AUDIT LOG
    */
-
   async logAction(entry: Omit<AuditLogEntry, "id">): Promise<string> {
     const client = await this.pool.connect();
     const id = uuidv4();
-
     try {
       await client.query(
         `
@@ -171,21 +155,17 @@ export class AuditService {
           JSON.stringify(entry.metadata),
         ]
       );
-
       return id;
     } finally {
       client.release();
     }
   }
-
   /**
    * REGISTRAR CONFLITO
    */
-
   async logConflict(conflict: Omit<ConflictLog, "id">): Promise<string> {
     const client = await this.pool.connect();
     const id = uuidv4();
-
     try {
       await client.query(
         `
@@ -209,17 +189,14 @@ export class AuditService {
           JSON.stringify(conflict.metadata),
         ]
       );
-
       return id;
     } finally {
       client.release();
     }
   }
-
   /**
    * OBTER LOGS DE AUDITORIA COM FILTROS
    */
-
   async getLogs(
     filters?: {
       projectId?: number;
@@ -232,51 +209,40 @@ export class AuditService {
     }
   ): Promise<AuditLogEntry[]> {
     const client = await this.pool.connect();
-
     try {
       let query =
         "SELECT * FROM audit_logs WHERE 1=1";
       const params: any[] = [];
       let paramIndex = 1;
-
       if (filters?.projectId) {
         query += ` AND project_id = $${paramIndex++}`;
         params.push(filters.projectId);
       }
-
       if (filters?.action) {
         query += ` AND action = $${paramIndex++}`;
         params.push(filters.action);
       }
-
       if (filters?.startDate) {
         query += ` AND timestamp >= $${paramIndex++}`;
         params.push(filters.startDate);
       }
-
       if (filters?.endDate) {
         query += ` AND timestamp <= $${paramIndex++}`;
         params.push(filters.endDate);
       }
-
       if (filters?.onlyErrors) {
         query += ` AND success = false`;
       }
-
       query += ` ORDER BY timestamp DESC`;
-
       if (filters?.limit) {
         query += ` LIMIT $${paramIndex++}`;
         params.push(filters.limit);
       }
-
       if (filters?.offset) {
         query += ` OFFSET $${paramIndex++}`;
         params.push(filters.offset);
       }
-
       const result = await client.query(query, params);
-
       return result.rows.map((row) => ({
         id: row.id,
         timestamp: new Date(row.timestamp),
@@ -302,35 +268,27 @@ export class AuditService {
       client.release();
     }
   }
-
   /**
    * OBTER CONFLITOS
    */
-
   async getConflicts(
     projectId?: number,
     resolved?: boolean
   ): Promise<ConflictLog[]> {
     const client = await this.pool.connect();
-
     try {
       let query = "SELECT * FROM conflict_logs WHERE 1=1";
       const params: any[] = [];
-
       if (projectId) {
         query += " AND project_id = $1";
         params.push(projectId);
       }
-
       if (resolved !== undefined) {
         query += ` AND resolved = $${params.length + 1}`;
         params.push(resolved);
       }
-
       query += " ORDER BY timestamp DESC";
-
       const result = await client.query(query, params);
-
       return result.rows.map((row) => ({
         id: row.id,
         timestamp: new Date(row.timestamp),
@@ -347,11 +305,9 @@ export class AuditService {
       client.release();
     }
   }
-
   /**
    * SALVAR SNAPSHOT PARA ROLLBACK
    */
-
   async saveRollbackSnapshot(
     projectId: number,
     phase: number,
@@ -361,7 +317,6 @@ export class AuditService {
   ): Promise<string> {
     const client = await this.pool.connect();
     const id = uuidv4();
-
     try {
       await client.query(
         `
@@ -378,17 +333,14 @@ export class AuditService {
           automationId,
         ]
       );
-
       return id;
     } finally {
       client.release();
     }
   }
-
   /**
    * OBTER ESTATÍSTICAS
    */
-
   async getStatistics(hours = 24): Promise<{
     totalActions: number;
     successfulActions: number;
@@ -399,10 +351,8 @@ export class AuditService {
     errorRate: number;
   }> {
     const client = await this.pool.connect();
-
     try {
       const startTime = new Date(Date.now() - hours * 60 * 60 * 1000);
-
       const result = await client.query(
         `
         SELECT
@@ -416,12 +366,10 @@ export class AuditService {
         `,
         [startTime]
       );
-
       const row = result.rows[0];
       const total = parseInt(row.total_actions) || 0;
       const successful = parseInt(row.successful_actions) || 0;
       const failed = parseInt(row.failed_actions) || 0;
-
       // Conflitos
       const conflictResult = await client.query(
         `
@@ -431,9 +379,7 @@ export class AuditService {
         `,
         [startTime]
       );
-
       const conflicts = parseInt(conflictResult.rows[0].conflict_count) || 0;
-
       return {
         totalActions: total,
         successfulActions: successful,
@@ -447,21 +393,16 @@ export class AuditService {
       client.release();
     }
   }
-
   /**
    * LIMPAR CONEXÕES
    */
-
   async close(): Promise<void> {
     await this.pool.end();
     this.audit.info("Audit service closed");
   }
 }
-
 /**
  * EXPORTAR INSTÂNCIA SINGLETON
  */
-
 export const auditService = new AuditService();
-
 export default auditService;
