@@ -1,8 +1,8 @@
 import { v4 as uuidv4 } from "uuid";
-import { config } from "../config";
-import { createAuditLogger, AuditLogger } from "../utils/logger";
-import albiwareClient from "./albiware.client";
-import validationService from "./validation.service";
+import { config } from "../config/index.js";
+import { createAuditLogger, AuditLogger } from "../utils/logger.js";
+import albiwareClient from "./albiware.client.js";
+import validationService from "./validation.service.js";
 import {
   Project,
   ProjectPhase,
@@ -12,7 +12,6 @@ import {
   CascadeConfiguration,
   OperationResult,
 } from "../types";
-
 /**
  * MOTOR DE CASCATA - LÓGICA PRINCIPAL
  *
@@ -28,28 +27,22 @@ import {
  * - Isolamento total
  * - Logging completo
  */
-
 export class CascadeService {
   private audit: AuditLogger;
   private config: CascadeConfiguration;
-
   constructor() {
     this.audit = createAuditLogger({
       automationId: "cascade-service",
       dryRun: config.dryRun,
     });
-
     this.config = this.buildConfiguration();
   }
-
   /**
    * CONSTRUIR CONFIGURAÇÃO DE CASCATA
    */
-
   private buildConfiguration(): CascadeConfiguration {
     return {
       projectTypes: config.cascade.projectTypes,
-
       phases: [
         // ================================================================
         // FASE 1: "In Production"
@@ -106,7 +99,6 @@ export class CascadeService {
           triggerTask: "Assign Estimator",
           triggerDateKey: "Estimator Assigned",
         },
-
         // ================================================================
         // FASE 2: "Estimate Process"
         // ================================================================
@@ -176,7 +168,6 @@ export class CascadeService {
           triggerTask: "Finalize Agreed Price",
           triggerDateKey: "AP Approved",
         },
-
         // ================================================================
         // FASE 3: "Accounts Receivable"
         // ================================================================
@@ -239,7 +230,6 @@ export class CascadeService {
           triggerDateKey: "Final Paid Date/Date Closed",
         },
       ],
-
       assignmentRules: {
         "Lead Project Manager": {
           defaultRole: "Lead Project Manager",
@@ -264,16 +254,13 @@ export class CascadeService {
       },
     };
   }
-
   /**
    * DISPARAR CASCATA PARA NOVO PROJETO
    * Ponto de entrada principal
    */
-
   async triggerCascadeForProject(projectId: number): Promise<OperationResult> {
     const operationId = uuidv4();
     const startTime = Date.now();
-
     try {
       this.audit.info(
         `🚀 INICIANDO CASCATA PARA PROJETO`,
@@ -283,17 +270,14 @@ export class CascadeService {
           dryRun: config.dryRun,
         }
       );
-
       // 1. Validar projeto
       const project = await albiwareClient.getProject(projectId, {
         operationId,
         audit: this.audit,
       });
-
       if (!project) {
         throw new Error(`Project ${projectId} not found`);
       }
-
       // 2. Verificar se projeto é tipo aplicável
       if (!config.cascade.projectTypes.includes(project.projectType as any)) {
         return {
@@ -303,10 +287,8 @@ export class CascadeService {
           timestamp: new Date(),
         };
       }
-
       // 3. Obter phase 1 config
       const phase1 = this.config.phases[0];
-
       // 4. Criar tasks da fase 1
       const phase1Result = await this.createPhase(
         projectId,
@@ -314,13 +296,10 @@ export class CascadeService {
         phase1,
         operationId
       );
-
       if (!phase1Result.success) {
         return phase1Result;
       }
-
       const duration = Date.now() - startTime;
-
       this.audit.info(
         `✅ CASCATA INICIADA COM SUCESSO`,
         {
@@ -330,7 +309,6 @@ export class CascadeService {
           tasksCreated: (phase1Result.data as any)?.tasksCreated || 0,
         }
       );
-
       return {
         success: true,
         data: {
@@ -344,7 +322,6 @@ export class CascadeService {
       };
     } catch (error) {
       const duration = Date.now() - startTime;
-
       this.audit.error(
         `❌ ERRO AO DISPARAR CASCATA`,
         error as Error,
@@ -354,7 +331,6 @@ export class CascadeService {
           duration,
         }
       );
-
       return {
         success: false,
         error: (error as Error).message,
@@ -363,11 +339,9 @@ export class CascadeService {
       };
     }
   }
-
   /**
    * CRIAR UMA PHASE COMPLETA
    */
-
   private async createPhase(
     projectId: number,
     project: Project,
@@ -378,7 +352,6 @@ export class CascadeService {
     const tasksCreated = [];
     const tasksSkipped = [];
     const errors = [];
-
     try {
       this.audit.info(
         `📋 CRIANDO FASE ${phase.phaseNumber} (${phase.projectStatus})`,
@@ -388,7 +361,6 @@ export class CascadeService {
           taskCount: phase.tasks.length,
         }
       );
-
       // Criar cada tarefa da fase
       for (const taskTemplate of phase.tasks) {
         try {
@@ -399,7 +371,6 @@ export class CascadeService {
             phase.phaseNumber,
             operationId
           );
-
           if (taskResult.success) {
             tasksCreated.push((taskResult.data as any)?.taskName);
           } else if (taskResult.data?.skipped) {
@@ -417,13 +388,10 @@ export class CascadeService {
           });
         }
       }
-
       const phaseDuration = Date.now() - phaseStartTime;
-
       // Resultado da fase
       const phaseSuccess =
         tasksCreated.length > 0 && errors.length === 0;
-
       if (phaseSuccess) {
         this.audit.info(
           `✅ FASE ${phase.phaseNumber} CONCLUÍDA`,
@@ -448,7 +416,6 @@ export class CascadeService {
           }
         );
       }
-
       return {
         success: phaseSuccess,
         data: {
@@ -471,7 +438,6 @@ export class CascadeService {
           errors: errors.length,
         }
       );
-
       return {
         success: false,
         error: (error as Error).message,
@@ -480,11 +446,9 @@ export class CascadeService {
       };
     }
   }
-
   /**
    * CRIAR UMA TAREFA A PARTIR DE TEMPLATE
    */
-
   private async createTaskFromTemplate(
     projectId: number,
     project: Project,
@@ -501,7 +465,6 @@ export class CascadeService {
         this.config.phases[phase - 1].projectStatus,
         undefined
       );
-
       if (!validation.allChecks.valid) {
         // Se tarefa já existe, não é erro (idempotência)
         if (!validation.taskNotDuplicate) {
@@ -513,7 +476,6 @@ export class CascadeService {
               taskName: template.name,
             }
           );
-
           return {
             success: true,
             data: {
@@ -525,13 +487,11 @@ export class CascadeService {
             timestamp: new Date(),
           };
         }
-
         // Outros erros
         throw new Error(
           `Validation failed: ${validation.allChecks.errors.join("; ")}`
         );
       }
-
       // 2. Preparar dados da tarefa
       const taskNotes = [
         `Automated: ${config.isolation.automationTag}`,
@@ -539,7 +499,6 @@ export class CascadeService {
         `Created by: ${config.isolation.automationOwner}`,
         `OperationID: ${operationId}`,
       ].join(" | ");
-
       // 3. Criar tarefa via API
       const createdTask = await albiwareClient.createTask(
         projectId,
@@ -554,7 +513,6 @@ export class CascadeService {
           dryRun: config.dryRun,
         }
       );
-
       this.audit.info(
         `✅ TAREFA CRIADA`,
         {
@@ -565,7 +523,6 @@ export class CascadeService {
           phase,
         }
       );
-
       return {
         success: true,
         data: {
@@ -586,7 +543,6 @@ export class CascadeService {
           phase,
         }
       );
-
       return {
         success: false,
         error: (error as Error).message,
@@ -595,19 +551,16 @@ export class CascadeService {
       };
     }
   }
-
   /**
    * PROCESSAR CONCLUSÃO DE TAREFA
    * Dispara próxima fase se necessário
    */
-
   async processTaskCompletion(
     projectId: number,
     taskName: string,
     operationId?: string
   ): Promise<OperationResult> {
     operationId = operationId || uuidv4();
-
     try {
       this.audit.info(
         `✅ TAREFA CONCLUÍDA DETECTADA`,
@@ -617,10 +570,8 @@ export class CascadeService {
           taskName,
         }
       );
-
       // 1. Verificar qual fase está completa
       let nextPhaseToTrigger: CascadePhase | undefined;
-
       for (const phase of this.config.phases) {
         if (phase.triggerTask === taskName) {
           const nextPhaseIndex = phase.phaseNumber;
@@ -630,7 +581,6 @@ export class CascadeService {
           break;
         }
       }
-
       if (!nextPhaseToTrigger) {
         this.audit.info(
           `ℹ️  TAREFA NÃO DISPARA FASE`,
@@ -640,7 +590,6 @@ export class CascadeService {
             taskName,
           }
         );
-
         return {
           success: true,
           data: {
@@ -652,7 +601,6 @@ export class CascadeService {
           timestamp: new Date(),
         };
       }
-
       // 2. Disparar próxima fase
       this.audit.info(
         `🚀 DISPARANDO PRÓXIMA FASE`,
@@ -663,23 +611,19 @@ export class CascadeService {
           nextPhase: nextPhaseToTrigger.phaseNumber,
         }
       );
-
       const project = await albiwareClient.getProject(projectId, {
         operationId,
         audit: this.audit,
       });
-
       if (!project) {
         throw new Error(`Project ${projectId} not found`);
       }
-
       const phaseResult = await this.createPhase(
         projectId,
         project,
         nextPhaseToTrigger,
         operationId
       );
-
       return {
         success: phaseResult.success,
         data: {
@@ -701,7 +645,6 @@ export class CascadeService {
           taskName,
         }
       );
-
       return {
         success: false,
         error: (error as Error).message,
@@ -710,37 +653,28 @@ export class CascadeService {
       };
     }
   }
-
   /**
    * OBTER CONFIGURAÇÃO DE CASCATA
    */
-
   getConfiguration(): CascadeConfiguration {
     return this.config;
   }
-
   /**
    * OBTER FASES
    */
-
   getPhases(): CascadePhase[] {
     return this.config.phases;
   }
-
   /**
    * OBTER TAREFAS DE UMA FASE
    */
-
   getTasksForPhase(phaseNumber: TaskPhase): TaskTemplate[] {
     const phase = this.config.phases.find((p) => p.phaseNumber === phaseNumber);
     return phase?.tasks || [];
   }
 }
-
 /**
  * EXPORTAR INSTÂNCIA SINGLETON
  */
-
 export const cascadeService = new CascadeService();
-
 export default cascadeService;
