@@ -44,9 +44,9 @@ class CascadeService {
         trigger: "Created At",
         tasks: [
           {
-            name: "Sign Work Auth",
-            description: "Work Authorization to be signed",
-            assignedTo: "Donna",
+            name: "Start Job",
+            description: "Start the job after Work Authorization is signed by client",
+            assignedTo: "Technician",
             dateToFill: "Work Authorization Signed",
           },
         ],
@@ -190,17 +190,6 @@ class CascadeService {
     return this.configuration;
   }
 
-  private getTriggerFromDateField(dateField: string): string {
-    const triggerMap: { [key: string]: string } = {
-      "Work Authorization Signed": "Work Authorization Signed",
-      "Work Start": "Work Authorization Signed",
-      "Work Complete": "Work Complete",
-      "Estimate Approved": "AP Approved",
-    };
-
-    return triggerMap[dateField] || "";
-  }
-
   async triggerCascadeForProject(projectId: number): Promise<CascadeResult> {
     console.log(`🎯 DISPARANDO CASCATA PARA PROJETO ${projectId}`);
     logger.info(`🎯 Disparando cascata`, { projectId });
@@ -227,7 +216,7 @@ class CascadeService {
       }
 
       // Determinar qual trigger foi disparado baseado nas datas preenchidas
-      let activeTrigger = "";
+      let activeTrigger = "Created At";
 
       if (project["Work Authorization Signed"] || project.workAuthorizationSigned) {
         activeTrigger = "Work Authorization Signed";
@@ -238,11 +227,8 @@ class CascadeService {
       if (project["Estimate Approved"] || project.estimateApproved) {
         activeTrigger = "AP Approved";
       }
-      if (!activeTrigger && (project["Work Start"] || project.workStart)) {
-        activeTrigger = "Work Authorization Signed";
-      }
 
-      result.trigger = activeTrigger || "Created At";
+      result.trigger = activeTrigger;
 
       console.log(`🔍 Trigger detectado: ${result.trigger}`);
       logger.info(`🔍 Trigger detectado`, { trigger: result.trigger });
